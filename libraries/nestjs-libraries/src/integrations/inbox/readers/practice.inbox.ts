@@ -74,11 +74,20 @@ export class PracticeInboxReader implements InboxReader {
   ): Promise<NetworkMessage[]> {
     const all: NetworkMessage[] = [];
     for (const post of posts) {
-      const comments = await call<PracticeComment[]>(
-        ctx,
-        'GET',
-        `/api/posts/${encodeURIComponent(post.networkPostId)}/comments`
-      );
+      let comments: PracticeComment[];
+      try {
+        comments = await call<PracticeComment[]>(
+          ctx,
+          'GET',
+          `/api/posts/${encodeURIComponent(post.networkPostId)}/comments`
+        );
+      } catch (error) {
+        // A post deleted on the network has no comments any more; that is not a failure of the whole channel.
+        if (error instanceof InboxNetworkError && error.status === 404) {
+          continue;
+        }
+        throw error;
+      }
       for (const c of comments) {
         const receivedAt = new Date(c.createdAt);
         if (since && receivedAt.getTime() < since.getTime()) {
