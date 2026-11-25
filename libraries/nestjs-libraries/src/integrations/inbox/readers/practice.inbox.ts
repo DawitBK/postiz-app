@@ -40,6 +40,17 @@ const call = async <T>(
   return (text ? JSON.parse(text) : {}) as T;
 };
 
+/** The account on the pretend network, made sure of by its handle: it forgets what it holds when it restarts. */
+const accountIdOf = async (ctx: InboxChannelContext): Promise<string> => {
+  if (!ctx.profile) {
+    return ctx.accountId;
+  }
+  const account = await call<{ id: string }>(ctx, 'POST', '/api/accounts', {
+    handle: ctx.profile,
+  });
+  return account.id;
+};
+
 type PracticeComment = {
   id: string;
   authorName: string;
@@ -118,7 +129,7 @@ export class PracticeInboxReader implements InboxReader {
     const messages = await call<PracticeMessage[]>(
       ctx,
       'GET',
-      `/api/messages?accountId=${encodeURIComponent(ctx.accountId)}`
+      `/api/messages?accountId=${encodeURIComponent(await accountIdOf(ctx))}`
     );
     return messages
       .map((m) => ({
@@ -160,7 +171,7 @@ export class PracticeInboxReader implements InboxReader {
       ctx,
       'POST',
       `/api/messages/${encodeURIComponent(target.threadId ?? '')}/reply`,
-      { accountId: ctx.accountId, text }
+      { accountId: await accountIdOf(ctx), text }
     );
     return { replyId: created.id };
   }

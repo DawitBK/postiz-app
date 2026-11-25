@@ -46,6 +46,23 @@ const call = async <T>(
 };
 
 type PracticePost = { id: string; url: string; state: string };
+
+/**
+ * The account on the pretend network, made sure of by its handle (the channel's profile). The pretend network forgets
+ * what it holds when it restarts, a real network never forgets an account, so this stands in for that.
+ */
+const accountIdOf = async (
+  internalId: string,
+  profile: string | null | undefined
+): Promise<string> => {
+  if (!profile) {
+    return internalId;
+  }
+  const account = await call<{ id: string }>('POST', '/api/accounts', {
+    handle: profile,
+  });
+  return account.id;
+};
 type PracticeSeries = {
   label: string;
   data: { date: string; total: string }[];
@@ -131,7 +148,7 @@ export class PracticeProvider extends SocialAbstract implements SocialProvider {
   ): Promise<PostResponse[]> {
     const [first, ...rest] = postDetails;
     const created = await call<PracticePost>('POST', '/api/posts', {
-      accountId: id,
+      accountId: await accountIdOf(id, integration?.profile),
       text: first.message,
       media: (first.media ?? []).map((m) => m.path),
     });
