@@ -38,6 +38,7 @@ import { SkoolProvider } from '@gitroom/nestjs-libraries/integrations/social/sko
 import { WhopProvider } from '@gitroom/nestjs-libraries/integrations/social/whop.provider';
 import { MeweProvider } from '@gitroom/nestjs-libraries/integrations/social/mewe.provider';
 import { TumblrProvider } from '@gitroom/nestjs-libraries/integrations/social/tumblr.provider';
+import { PracticeProvider } from '@gitroom/nestjs-libraries/integrations/social/practice.provider';
 
 export const socialIntegrationList: Array<SocialAbstract & SocialProvider> = [
   new XProvider(),
@@ -77,6 +78,12 @@ export const socialIntegrationList: Array<SocialAbstract & SocialProvider> = [
   new TumblrProvider(),
   // new MastodonCustomProvider(),
 ];
+
+// The practice network is for development and tests only: a pretend network to publish to without a developer app.
+// It exists only when POSTIZ_PRACTICE_NETWORK=true and is never registered in production.
+if (process.env.POSTIZ_PRACTICE_NETWORK === 'true') {
+  socialIntegrationList.push(new PracticeProvider());
+}
 
 @Injectable()
 export class IntegrationManager {
