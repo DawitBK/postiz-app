@@ -59,6 +59,17 @@ import { GetOrgActivityDto } from '@gitroom/nestjs-libraries/dtos/analytics/get.
 import { ResetCreditsDto } from '@gitroom/nestjs-libraries/dtos/billing/reset.credits.dto';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import dayjs from 'dayjs';
+import {
+  InboxNotFoundError,
+  InboxService,
+} from '@gitroom/nestjs-libraries/database/prisma/inbox/inbox.service';
+import { GetInboxDto } from '@gitroom/nestjs-libraries/dtos/inbox/get.inbox.dto';
+import { ReplyInboxDto } from '@gitroom/nestjs-libraries/dtos/inbox/reply.inbox.dto';
+import {
+  InboxNetworkError,
+  InboxNotSupportedError,
+  InboxTokenError,
+} from '@gitroom/nestjs-libraries/integrations/inbox/inbox.types';
 
 @ApiTags('Public API')
 @Controller('/public/v1')
@@ -74,7 +85,8 @@ export class PublicIntegrationsController {
     private _adminStatsService: AdminStatsService,
     private _organizationService: OrganizationService,
     private _clippingService: ClippingService,
-    private _subscriptionService: SubscriptionService
+    private _subscriptionService: SubscriptionService,
+    private _inboxService: InboxService
   ) {}
 
   @Post('/upload')
@@ -339,6 +351,48 @@ export class PublicIntegrationsController {
             }
           : undefined,
       }));
+  }
+
+  @Get('/inbox')
+  async getInbox(
+    @GetOrgFromRequest() org: Organization,
+    @Query() query: GetInboxDto
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    return this._inboxService.list(
+      org.id,
+      new Date(query.from),
+      new Date(query.to),
+      query.integration
+    );
+  }
+
+  @Post('/inbox/reply')
+  async replyInbox(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: ReplyInboxDto
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    try {
+      return await this._inboxService.reply(org.id, body.id, body.text);
+    } catch (error) {
+      if (error instanceof InboxNotFoundError) {
+        throw new HttpException({ message: error.message }, 404);
+      }
+      if (error instanceof InboxNotSupportedError) {
+        throw new HttpException({ message: error.message }, 422);
+      }
+      if (error instanceof InboxTokenError) {
+        throw new HttpException({ message: error.message }, 401);
+      }
+      if (error instanceof InboxNetworkError) {
+        throw new HttpException(
+          { message: error.message },
+          error.retryable ? 503 : 502
+        );
+      }
+      throw error;
+    }
   }
 
   @Get('/social/:integration')
